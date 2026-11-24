@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# Run-time extraction logs (keep folder tracked with .gitkeep)
+PersonalDataCatch/Logs/*
+!PersonalDataCatch/Logs/.gitkeep
+
+# IDE & OS temporary files
+.DS_Store
+Thumbs.db
