@@ -79,17 +79,61 @@ class Iknow99Collector:
         # 輪詢檢測是否已成功登入並進入 car.manager
         max_wait_seconds = 300  # 5分鐘等待
         start_wait = time.time()
+        last_log_time = 0
         
         while time.time() - start_wait < max_wait_seconds:
-            current_url = page.url
-            # 檢查 URL 是否在 car.manager 且頁面上出現車輛列表或登出/使用者名稱等指標
-            if "car.manager" in current_url:
-                # 檢查是否有車輛列表選單或儀表板標籤
-                car_items = page.locator(".car-list, [class*='car'], [class*='vehicle'], .tab, text='車輛列表'").count()
-                if car_items > 0 or page.locator("text='儀表板'").count() > 0 or page.locator("text='紀錄列表'").count() > 0:
+            try:
+                current_url = page.url
+                
+                # 檢測是否成功進入後台：支援「記錄列表」與「紀錄列表」、儀表板、車輛列表、或頂部選單
+                is_logged_in = False
+                
+                # 1. 檢查頁面文字 (最可靠防護)
+                if "accounts.google.com" not in current_url and ("iknow99.com" in current_url or "car" in current_url):
+                    try:
+                        body_text = page.inner_text("body")
+                        if any(k in body_text for k in ["車輛列表", "儀表板", "記錄列表", "紀錄列表", "費用統計", "愛車管理", "william"]):
+                            is_logged_in = True
+                    except Exception:
+                        pass
+                
+                # 2. 檢查典型後台特徵元素 (同時相容 '記錄' 與 '紀錄')
+                if not is_logged_in:
+                    selectors = [
+                        "text='記錄列表'",
+                        "text='紀錄列表'",
+                        "text='儀表板'",
+                        "text='車輛列表'",
+                        "text='費用統計'",
+                        "text='愛車管理'",
+                        ".car-list",
+                        "[class*='vehicle-item']"
+                    ]
+                    for sel in selectors:
+                        try:
+                            if page.locator(sel).count() > 0:
+                                is_logged_in = True
+                                break
+                        except Exception:
+                            pass
+                
+                # 2. 若頁面包含後台車輛或列表特徵
+                if is_logged_in:
                     self.reporter.log("✔ 偵測到已成功登入 iknow99 後台！程式開始自動化接手...", "SUCCESS")
                     time.sleep(2)  # 等待頁面穩定載入
                     return
+                
+                # 每 10 秒輸出一次當前狀態，讓使用者知道程式在正常等待
+                now = time.time()
+                if now - last_log_time >= 10:
+                    last_log_time = now
+                    # 簡化顯示 URL
+                    display_url = current_url if len(current_url) < 60 else current_url[:57] + "..."
+                    self.reporter.log(f"[*] 等待登入中... 請於 Chrome 視窗完成 Google 登入 (目前頁面: {display_url})")
+
+            except Exception:
+                pass
+
             time.sleep(2)
 
         raise TimeoutError("等待使用者登入逾時（超過 5 分鐘），程式終止。")
@@ -213,8 +257,8 @@ class Iknow99Collector:
         """切換到「紀錄列表」分頁並逐頁、逐筆完整擷取"""
         self.reporter.log("切換至【紀錄列表】分頁...")
         
-        # 點擊「紀錄列表」頁籤
-        tab_list = page.locator("text='紀錄列表'")
+        # 點擊「記錄列表」或「紀錄列表」頁籤
+        tab_list = page.locator("text='記錄列表', text='紀錄列表', a:has-text('記錄列表'), a:has-text('紀錄列表')")
         if tab_list.count() > 0:
             tab_list.first.click()
             time.sleep(2)
