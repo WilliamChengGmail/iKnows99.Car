@@ -1,6 +1,14 @@
 import sys
 from pathlib import Path
 
+# 設定 Windows 終端輸出編碼為 UTF-8，防止編碼衝突
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # 將當前資料夾加入 sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -21,4 +29,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
