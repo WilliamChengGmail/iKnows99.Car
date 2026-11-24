@@ -65,3 +65,4 @@ python -m playwright install chromium
 python main.py
 ```
 啟動後請在彈出的瀏覽器中點擊 Google 登入，登入完成後程式即會自動完成所有資料之擷取與入庫。
+
