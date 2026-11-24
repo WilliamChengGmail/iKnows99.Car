@@ -1,6 +1,7 @@
 import time
 import re
 import json
+import threading
 from typing import Dict, Any, List, Optional
 from playwright.sync_api import sync_playwright, Page, BrowserContext
 
@@ -70,73 +71,85 @@ class Iknow99Collector:
         page.on("response", handle_response)
 
     def _wait_for_user_login(self, page: Page):
-        """引導並等待使用者完成 Google 登入"""
-        self.reporter.log("=======================================================", "WARN")
-        self.reporter.log("【請操作】請在彈出的瀏覽器視窗中，點擊 Google 登入完成驗證！", "WARN")
-        self.reporter.log("登入成功並進入後台畫面後，程式將自動偵測並接手抓取。", "WARN")
-        self.reporter.log("=======================================================", "WARN")
+        """引導並等待使用者完成 Google 登入 (支援自動辨識 + Enter 手動觸發雙保險)"""
+        self.reporter.log("==================================================================", "WARN")
+        self.reporter.log("【請操作】請在彈出的瀏覽器視窗中，完成 Google 登入！", "WARN")
+        self.reporter.log("【雙保險機制】", "WARN")
+        self.reporter.log("  1. 程式每秒在背景自動偵測是否已進入愛車管理後台。", "WARN")
+        self.reporter.log("  2. 若您已看到後台畫面，亦可直接在終端機按下 [Enter] 鍵立即啟動抓取！", "WARN")
+        self.reporter.log("==================================================================", "WARN")
 
-        # 輪詢檢測是否已成功登入並進入 car.manager
-        max_wait_seconds = 300  # 5分鐘等待
+        user_confirmed = threading.Event()
+
+        def listen_enter():
+            try:
+                # 監聽終端機 Enter
+                sys.stdin.readline()
+                user_confirmed.set()
+            except Exception:
+                pass
+
+        enter_thread = threading.Thread(target=listen_enter, daemon=True)
+        enter_thread.start()
+
+        max_wait_seconds = 600  # 延長為 10 分鐘等待
         start_wait = time.time()
         last_log_time = 0
-        
+
         while time.time() - start_wait < max_wait_seconds:
+            # 檢查使用者是否手動按下 Enter
+            if user_confirmed.is_set():
+                self.reporter.log("✔ 已接收到 [Enter] 指令！手動確認已完成登入，開始自動化接手...", "SUCCESS")
+                time.sleep(1)
+                break
+
+            # 自動檢測所有分頁 (防止 Google 登入開在 Popup 或分頁)
             try:
-                current_url = page.url
-                
-                # 檢測是否成功進入後台：支援「記錄列表」與「紀錄列表」、儀表板、車輛列表、或頂部選單
+                context = page.context
+                pages_to_check = context.pages if context else [page]
+
                 is_logged_in = False
-                
-                # 1. 檢查頁面文字 (最可靠防護)
-                if "accounts.google.com" not in current_url and ("iknow99.com" in current_url or "car" in current_url):
+                for p in pages_to_check:
                     try:
-                        body_text = page.inner_text("body")
-                        if any(k in body_text for k in ["車輛列表", "儀表板", "記錄列表", "紀錄列表", "費用統計", "愛車管理", "william"]):
-                            is_logged_in = True
+                        p_url = p.url
+                        # 若不是在 Google 認證域，且進入了 iknow99
+                        if "accounts.google.com" not in p_url and "iknow99.com" in p_url:
+                            # 檢查整個 DOM 的文字
+                            b_text = p.inner_text("body")
+                            if any(k in b_text for k in ["車輛列表", "儀表板", "記錄列表", "紀錄列表", "費用統計", "愛車管理", "william"]):
+                                is_logged_in = True
+                                # 確保焦點切回該頁面
+                                p.bring_to_front()
+                                break
                     except Exception:
                         pass
-                
-                # 2. 檢查典型後台特徵元素 (同時相容 '記錄' 與 '紀錄')
-                if not is_logged_in:
-                    selectors = [
-                        "text='記錄列表'",
-                        "text='紀錄列表'",
-                        "text='儀表板'",
-                        "text='車輛列表'",
-                        "text='費用統計'",
-                        "text='愛車管理'",
-                        ".car-list",
-                        "[class*='vehicle-item']"
-                    ]
-                    for sel in selectors:
-                        try:
-                            if page.locator(sel).count() > 0:
-                                is_logged_in = True
-                                break
-                        except Exception:
-                            pass
-                
-                # 2. 若頁面包含後台車輛或列表特徵
+
                 if is_logged_in:
-                    self.reporter.log("✔ 偵測到已成功登入 iknow99 後台！程式開始自動化接手...", "SUCCESS")
-                    time.sleep(2)  # 等待頁面穩定載入
-                    return
-                
-                # 每 10 秒輸出一次當前狀態，讓使用者知道程式在正常等待
+                    self.reporter.log("✔ 偵測到已成功進入 iknow99 後台！程式開始自動化接手...", "SUCCESS")
+                    time.sleep(2)
+                    break
+
                 now = time.time()
-                if now - last_log_time >= 10:
+                if now - last_log_time >= 15:
                     last_log_time = now
-                    # 簡化顯示 URL
-                    display_url = current_url if len(current_url) < 60 else current_url[:57] + "..."
-                    self.reporter.log(f"[*] 等待登入中... 請於 Chrome 視窗完成 Google 登入 (目前頁面: {display_url})")
+                    curr_url = page.url
+                    display_url = curr_url if len(curr_url) < 60 else curr_url[:57] + "..."
+                    self.reporter.log(f"[*] 等待登入中... (若已登入可直接在終端機按 [Enter] 鍵繼續)")
 
             except Exception:
                 pass
 
-            time.sleep(2)
+            time.sleep(1.5)
 
-        raise TimeoutError("等待使用者登入逾時（超過 5 分鐘），程式終止。")
+        # 確保當前分頁直接前往 car.manager 目標頁
+        try:
+            if "car.manager" not in page.url:
+                self.reporter.log(f"正在導航至主後台：{TARGET_URL}")
+                page.goto(TARGET_URL)
+                page.wait_for_load_state("networkidle")
+                time.sleep(2)
+        except Exception:
+            pass
 
     def _process_all_vehicles(self, page: Page) -> List[Dict[str, Any]]:
         """走訪左側車輛清單並擷取每台車的資料"""
