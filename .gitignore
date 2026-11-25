@@ -3,8 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments
+# Virtual environments & Dependencies
 .env
+.env*.local
+*.local
+node_modules/
+.next/
+dist/
 .venv
 env/
 venv/
@@ -13,7 +18,15 @@ venv/
 PersonalDataCatch/Logs/*
 !PersonalDataCatch/Logs/.gitkeep
 
+# Sensitive tokens & credentials
+token.txt
+*.pem
+*.key
+
+# Document backups
+*.bak
+.backups/
+
 # IDE & OS temporary files
 .DS_Store
 Thumbs.db
-

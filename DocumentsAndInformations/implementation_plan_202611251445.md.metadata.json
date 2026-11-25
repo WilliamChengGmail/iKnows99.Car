@@ -1,0 +1,7 @@
+{
+  "summary": "CarVitals 車輛管理系統完整實作計劃，包含技術堆疊（Next.js 14 + Turso + Tailwind）、目錄結構、資料庫設計、功能模組規格、API 路由、資料遷移策略、開發里程碑（8 個 Phase）與開放決策項目。",
+  "createdAt": "2026-11-25T06:45:55.286634700Z",
+  "updatedAt": "2026-11-25T06:45:55.240704300Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
