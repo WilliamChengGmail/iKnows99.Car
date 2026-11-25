@@ -30,3 +30,6 @@ token.txt
 # IDE & OS temporary files
 .DS_Store
 Thumbs.db
+
+# Database token
+Database/token.txt
