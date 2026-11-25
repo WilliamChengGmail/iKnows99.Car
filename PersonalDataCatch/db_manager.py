@@ -3,7 +3,14 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta, timezone
 from config import DATABASE_PATH
+
+TAIWAN_TZ = timezone(timedelta(hours=8))
+
+def get_taiwan_now() -> str:
+    """取得台灣標準時間 (UTC+8)，格式: YYYY-MM-DD HH:MM:SS"""
+    return datetime.now(TAIWAN_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 def get_connection() -> sqlite3.Connection:
     """取得 SQLite 資料庫連線"""
@@ -12,7 +19,7 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 def init_database():
-    """初始化 SQLite 資料表與 View 結構"""
+    """初始化 SQLite 資料表與 View 結構 (時區統一為台灣時間 UTC+8)"""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -39,8 +46,8 @@ def init_database():
         fuel_efficiency_unit TEXT,
         reserve_fuel_volume REAL,
         fuel_warning_percentage INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
+        updated_at TIMESTAMP DEFAULT (datetime('now', '+8 hours'))
     );
     """)
 
@@ -56,7 +63,7 @@ def init_database():
         total_amount REAL,
         payment_method TEXT,
         notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id),
         UNIQUE(vehicle_id, record_date, record_time, title)
     );
@@ -75,6 +82,7 @@ def init_database():
         quantity REAL,
         subtotal REAL,
         remarks TEXT,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (record_id) REFERENCES maintenance_records(record_id)
     );
     """)
@@ -86,7 +94,7 @@ def init_database():
         record_id TEXT,
         file_url TEXT,
         local_path TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (record_id) REFERENCES maintenance_records(record_id)
     );
     """)
@@ -113,7 +121,7 @@ def init_database():
         cost_per_km REAL,
         prev_fuel_used REAL,
         notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id),
         UNIQUE(vehicle_id, refuel_date, refuel_time)
     );
@@ -126,7 +134,7 @@ def init_database():
         record_id TEXT,
         file_url TEXT,
         local_path TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (record_id) REFERENCES refueling_records(record_id)
     );
     """)
@@ -144,7 +152,7 @@ def init_database():
         total_amount REAL,
         payment_method TEXT,
         notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id),
         UNIQUE(vehicle_id, expense_date, expense_time, title)
     );
@@ -157,7 +165,7 @@ def init_database():
         record_id TEXT,
         file_url TEXT,
         local_path TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours')),
         FOREIGN KEY (record_id) REFERENCES other_expense_records(record_id)
     );
     """)
@@ -209,9 +217,15 @@ def init_database():
         category TEXT,
         source_id TEXT,
         raw_json TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours'))
     );
     """)
+
+    # 確保已存在的 maintenance_items 表具備 created_at 欄位
+    try:
+        cursor.execute("ALTER TABLE maintenance_items ADD COLUMN created_at TIMESTAMP DEFAULT (datetime('now', '+8 hours'))")
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
@@ -290,23 +304,28 @@ def upsert_maintenance_record(rec: Dict[str, Any], items: List[Dict[str, Any]] =
     conn = get_connection()
     cursor = conn.cursor()
     
-    # 決定 record_id (若後台無 ID 則使用指紋)
+    # 決定 record_id (若後台無 ID 則使用指紋: vehicle_id + MAINT + date + time + mileage + amount + title)
     record_id = rec.get("record_id")
     if not record_id:
-        record_id = generate_fingerprint(rec.get("vehicle_id"), "MAINT", rec.get("record_date"), rec.get("record_time"), rec.get("title"))
+        record_id = generate_fingerprint(
+            rec.get("vehicle_id"), "MAINT",
+            rec.get("record_date"), rec.get("record_time"),
+            rec.get("mileage"), rec.get("total_amount"), rec.get("title")
+        )
     
     # 檢查是否已存在
     cursor.execute("SELECT record_id FROM maintenance_records WHERE record_id = ?", (record_id,))
     existing = cursor.fetchone()
     status = "UPDATED" if existing else "INSERTED"
 
+    now_tw = get_taiwan_now()
     cursor.execute("""
     INSERT INTO maintenance_records (
         record_id, vehicle_id, record_date, record_time, mileage,
-        title, total_amount, payment_method, notes
+        title, total_amount, payment_method, notes, created_at
     ) VALUES (
         :record_id, :vehicle_id, :record_date, :record_time, :mileage,
-        :title, :total_amount, :payment_method, :notes
+        :title, :total_amount, :payment_method, :notes, :created_at
     )
     ON CONFLICT(record_id) DO UPDATE SET
         mileage = excluded.mileage,
@@ -322,7 +341,8 @@ def upsert_maintenance_record(rec: Dict[str, Any], items: List[Dict[str, Any]] =
         "title": rec.get("title", ""),
         "total_amount": rec.get("total_amount", 0.0),
         "payment_method": rec.get("payment_method", "現金"),
-        "notes": rec.get("notes", "")
+        "notes": rec.get("notes", ""),
+        "created_at": now_tw
     })
 
     # 若更新，先清除舊細項再寫入
@@ -332,8 +352,8 @@ def upsert_maintenance_record(rec: Dict[str, Any], items: List[Dict[str, Any]] =
             cursor.execute("""
             INSERT INTO maintenance_items (
                 record_id, item_name, spec_detail, lifespan_date,
-                lifespan_mileage, unit_price, quantity, subtotal, remarks
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                lifespan_mileage, unit_price, quantity, subtotal, remarks, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 record_id,
                 it.get("item_name", ""),
@@ -343,7 +363,8 @@ def upsert_maintenance_record(rec: Dict[str, Any], items: List[Dict[str, Any]] =
                 it.get("unit_price", 0.0),
                 it.get("quantity", 1.0),
                 it.get("subtotal", 0.0),
-                it.get("remarks", "")
+                it.get("remarks", ""),
+                now_tw
             ))
 
     if attachments:
@@ -362,25 +383,30 @@ def upsert_refueling_record(rec: Dict[str, Any], attachments: List[str] = None) 
     
     record_id = rec.get("record_id")
     if not record_id:
-        record_id = generate_fingerprint(rec.get("vehicle_id"), "REFUEL", rec.get("refuel_date"), rec.get("refuel_time"), rec.get("mileage"))
+        record_id = generate_fingerprint(
+            rec.get("vehicle_id"), "REFUEL",
+            rec.get("refuel_date"), rec.get("refuel_time"),
+            rec.get("mileage"), rec.get("total_amount"), rec.get("liters")
+        )
         
     cursor.execute("SELECT record_id FROM refueling_records WHERE record_id = ?", (record_id,))
     existing = cursor.fetchone()
     status = "UPDATED" if existing else "INSERTED"
 
+    now_tw = get_taiwan_now()
     cursor.execute("""
     INSERT INTO refueling_records (
         record_id, vehicle_id, refuel_date, refuel_time, mileage,
         total_amount, payment_method, liters, unit_price, fuel_type,
         is_previous_missed, fuel_gauge_position, prev_mileage,
         trip_distance, tank_fuel_level, fuel_efficiency, cost_per_km,
-        prev_fuel_used, notes
+        prev_fuel_used, notes, created_at
     ) VALUES (
         :record_id, :vehicle_id, :refuel_date, :refuel_time, :mileage,
         :total_amount, :payment_method, :liters, :unit_price, :fuel_type,
         :is_previous_missed, :fuel_gauge_position, :prev_mileage,
         :trip_distance, :tank_fuel_level, :fuel_efficiency, :cost_per_km,
-        :prev_fuel_used, :notes
+        :prev_fuel_used, :notes, :created_at
     )
     ON CONFLICT(record_id) DO UPDATE SET
         total_amount = excluded.total_amount,
@@ -408,7 +434,8 @@ def upsert_refueling_record(rec: Dict[str, Any], attachments: List[str] = None) 
         "fuel_efficiency": rec.get("fuel_efficiency", 0.0),
         "cost_per_km": rec.get("cost_per_km", 0.0),
         "prev_fuel_used": rec.get("prev_fuel_used", 0.0),
-        "notes": rec.get("notes", "")
+        "notes": rec.get("notes", ""),
+        "created_at": now_tw
     })
 
     if attachments:
@@ -427,19 +454,24 @@ def upsert_expense_record(rec: Dict[str, Any], attachments: List[str] = None) ->
     
     record_id = rec.get("record_id")
     if not record_id:
-        record_id = generate_fingerprint(rec.get("vehicle_id"), "EXPENSE", rec.get("expense_date"), rec.get("expense_time"), rec.get("title"))
+        record_id = generate_fingerprint(
+            rec.get("vehicle_id"), "EXPENSE",
+            rec.get("expense_date"), rec.get("expense_time"),
+            rec.get("mileage"), rec.get("total_amount"), rec.get("title")
+        )
         
     cursor.execute("SELECT record_id FROM other_expense_records WHERE record_id = ?", (record_id,))
     existing = cursor.fetchone()
     status = "UPDATED" if existing else "INSERTED"
 
+    now_tw = get_taiwan_now()
     cursor.execute("""
     INSERT INTO other_expense_records (
         record_id, vehicle_id, expense_date, expense_time, mileage,
-        title, expense_category, total_amount, payment_method, notes
+        title, expense_category, total_amount, payment_method, notes, created_at
     ) VALUES (
         :record_id, :vehicle_id, :expense_date, :expense_time, :mileage,
-        :title, :expense_category, :total_amount, :payment_method, :notes
+        :title, :expense_category, :total_amount, :payment_method, :notes, :created_at
     )
     ON CONFLICT(record_id) DO UPDATE SET
         mileage = excluded.mileage,
@@ -457,7 +489,8 @@ def upsert_expense_record(rec: Dict[str, Any], attachments: List[str] = None) ->
         "expense_category": rec.get("expense_category", "其他"),
         "total_amount": rec.get("total_amount", 0.0),
         "payment_method": rec.get("payment_method", "現金"),
-        "notes": rec.get("notes", "")
+        "notes": rec.get("notes", ""),
+        "created_at": now_tw
     })
 
     if attachments:
@@ -468,6 +501,63 @@ def upsert_expense_record(rec: Dict[str, Any], attachments: List[str] = None) ->
     conn.commit()
     conn.close()
     return {"record_id": record_id, "status": status}
+
+def clean_invalid_data():
+    """清理開發/異常階段寫入的無效假資料，並將時區統一校正為台灣時間 (UTC+8)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM other_expense_records WHERE expense_date = '2022-01-01' AND total_amount = 0")
+    cursor.execute("DELETE FROM maintenance_records WHERE record_date = '2022-01-01' AND total_amount = 0")
+    cursor.execute("DELETE FROM refueling_records WHERE refuel_date = '2022-01-01' AND total_amount = 0")
+    cursor.execute("DELETE FROM maintenance_items WHERE record_id NOT IN (SELECT record_id FROM maintenance_records)")
+    
+    # 時區校正：若歷史紀錄為 UTC 時間 (比台灣時間慢約 8 小時)，統一轉換為台灣時間
+    try:
+        cursor.execute("UPDATE maintenance_records SET created_at = datetime(created_at, '+8 hours') WHERE created_at < datetime('now', '+4 hours')")
+        cursor.execute("UPDATE refueling_records SET created_at = datetime(created_at, '+8 hours') WHERE created_at < datetime('now', '+4 hours')")
+        cursor.execute("UPDATE other_expense_records SET created_at = datetime(created_at, '+8 hours') WHERE created_at < datetime('now', '+4 hours')")
+        cursor.execute("UPDATE vehicles SET created_at = datetime(created_at, '+8 hours'), updated_at = datetime(updated_at, '+8 hours') WHERE created_at < datetime('now', '+4 hours')")
+    except Exception:
+        pass
+
+    conn.commit()
+    conn.close()
+
+def clear_vehicle_records(vehicle_id: str):
+    """清除特定車輛名下的所有歷史紀錄 (在重新同步該車時使用，確保舊版錯誤資料被乾淨覆蓋)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    # 刪除保養細項與附件
+    cursor.execute("""
+        DELETE FROM maintenance_items WHERE record_id IN (
+            SELECT record_id FROM maintenance_records WHERE vehicle_id = ?
+        )
+    """, (vehicle_id,))
+    cursor.execute("""
+        DELETE FROM maintenance_attachments WHERE record_id IN (
+            SELECT record_id FROM maintenance_records WHERE vehicle_id = ?
+        )
+    """, (vehicle_id,))
+    cursor.execute("DELETE FROM maintenance_records WHERE vehicle_id = ?", (vehicle_id,))
+    
+    # 刪除加油與附件
+    cursor.execute("""
+        DELETE FROM refueling_attachments WHERE record_id IN (
+            SELECT record_id FROM refueling_records WHERE vehicle_id = ?
+        )
+    """, (vehicle_id,))
+    cursor.execute("DELETE FROM refueling_records WHERE vehicle_id = ?", (vehicle_id,))
+    
+    # 刪除費用與附件
+    cursor.execute("""
+        DELETE FROM expense_attachments WHERE record_id IN (
+            SELECT record_id FROM other_expense_records WHERE vehicle_id = ?
+        )
+    """, (vehicle_id,))
+    cursor.execute("DELETE FROM other_expense_records WHERE vehicle_id = ?", (vehicle_id,))
+    
+    conn.commit()
+    conn.close()
 
 def get_vehicle_counts(vehicle_id: str) -> Dict[str, int]:
     """取得特定車輛在資料庫中的各類別總數"""
