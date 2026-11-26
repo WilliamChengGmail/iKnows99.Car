@@ -152,24 +152,29 @@ export default function MaintenanceClient({ locale }: { locale: string }) {
       {/* 車輛切換與搜尋列 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* 車輛快速篩選 */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => handleFilterVehicle('')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              selectedVehicleId === '' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 ${
+              selectedVehicleId === ''
+                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                : 'bg-card border border-border text-muted-foreground hover:bg-muted'
             }`}
           >
-            全部車輛 ({records.length})
+            全部愛車 ({records.length})
           </button>
-          {vehicles.map(v => (
+          {vehicles.map((v) => (
             <button
               key={v.vehicle_id}
               onClick={() => handleFilterVehicle(v.vehicle_id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                selectedVehicleId === v.vehicle_id ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 flex items-center gap-2 ${
+                selectedVehicleId === v.vehicle_id
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                  : 'bg-card border border-border text-muted-foreground hover:bg-muted'
               }`}
             >
-              {v.nickname || v.plate_number}
+              <span>{v.plate_number}</span>
+              {v.nickname && <span className="text-xs opacity-80">({v.nickname})</span>}
             </button>
           ))}
         </div>
@@ -181,7 +186,7 @@ export default function MaintenanceClient({ locale }: { locale: string }) {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜尋工單標題或車牌..."
+            placeholder="搜尋工單標題、車牌或車輛暱稱..."
             className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-card text-foreground text-xs focus:ring-2 focus:ring-primary focus:outline-none"
           />
         </div>
@@ -214,8 +219,9 @@ export default function MaintenanceClient({ locale }: { locale: string }) {
                       <span className="text-base font-black text-foreground group-hover:text-primary transition-colors">
                         {r.title}
                       </span>
-                      <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted text-foreground font-bold">
-                        {r.plate_number}
+                      <span className="font-mono text-xs px-2.5 py-0.5 rounded-lg bg-muted text-foreground font-bold inline-flex items-center gap-1">
+                        <span>{r.plate_number}</span>
+                        {r.nickname && <span className="text-muted-foreground font-medium">({r.nickname})</span>}
                       </span>
                     </div>
 
@@ -256,7 +262,10 @@ export default function MaintenanceClient({ locale }: { locale: string }) {
           <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start justify-between border-b border-border pb-4">
               <div>
-                <span className="text-xs font-mono font-bold text-muted-foreground">{activeRecord.plate_number} · {activeRecord.nickname}</span>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground font-mono">{activeRecord.plate_number}</span>
+                  {activeRecord.nickname && <span>({activeRecord.nickname})</span>}
+                </div>
                 <h3 className="text-xl font-black text-foreground mt-0.5">{activeRecord.title}</h3>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                   <span>日期: {activeRecord.record_date}</span>
@@ -355,9 +364,9 @@ export default function MaintenanceClient({ locale }: { locale: string }) {
                   onChange={(e) => setNewVehicleId(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                 >
-                  {vehicles.map(v => (
+                  {vehicles.map((v) => (
                     <option key={v.vehicle_id} value={v.vehicle_id}>
-                      {v.nickname || v.plate_number} ({v.plate_number})
+                      {v.plate_number} {v.nickname ? `(${v.nickname})` : ''} - 目前里程: {v.current_mileage?.toLocaleString()} km
                     </option>
                   ))}
                 </select>
