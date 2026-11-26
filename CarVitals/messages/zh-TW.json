@@ -1,0 +1,39 @@
+{
+  "common": {
+    "appName": "CarVitals",
+    "appTagline": "現代化車輛健康與保養管理系統",
+    "login": "登入",
+    "logout": "登出",
+    "save": "儲存",
+    "cancel": "取消",
+    "edit": "編輯",
+    "delete": "刪除",
+    "view": "檢視",
+    "search": "搜尋",
+    "loading": "載入中...",
+    "noData": "查無資料",
+    "back": "返回"
+  },
+  "nav": {
+    "dashboard": "儀表板",
+    "vehicles": "車輛管理",
+    "maintenance": "維修保養",
+    "refueling": "加油紀錄",
+    "expenses": "其他費用",
+    "admin": "後台管理"
+  },
+  "dashboard": {
+    "title": "車輛健康儀表板",
+    "subtitle": "即時掌握各車輛健康狀況、行駛里程與零件壽命預警",
+    "selectVehicle": "選擇車輛",
+    "currentMileage": "當前里程",
+    "healthStatus": "零件健康度",
+    "recentAlerts": "待保養與到期提醒",
+    "monthlyExpense": "本月花費統計",
+    "fuelEfficiency": "平均油耗表現",
+    "statusOk": "良好",
+    "statusWarning": "即將到期",
+    "statusDanger": "已逾期"
+  }
+}
+

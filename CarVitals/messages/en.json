@@ -1,0 +1,39 @@
+{
+  "common": {
+    "appName": "CarVitals",
+    "appTagline": "Modern Vehicle Health & Maintenance System",
+    "login": "Login",
+    "logout": "Logout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data found",
+    "back": "Back"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "vehicles": "Vehicles",
+    "maintenance": "Maintenance",
+    "refueling": "Refueling",
+    "expenses": "Expenses",
+    "admin": "Admin"
+  },
+  "dashboard": {
+    "title": "Vehicle Health Dashboard",
+    "subtitle": "Real-time overview of vehicle status, mileage, and component lifespans",
+    "selectVehicle": "Select Vehicle",
+    "currentMileage": "Current Mileage",
+    "healthStatus": "Component Health",
+    "recentAlerts": "Maintenance Alerts",
+    "monthlyExpense": "Monthly Expenses",
+    "fuelEfficiency": "Average Fuel Efficiency",
+    "statusOk": "Good",
+    "statusWarning": "Due Soon",
+    "statusDanger": "Overdue"
+  }
+}
+
