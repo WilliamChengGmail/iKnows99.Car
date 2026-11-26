@@ -1,7 +1,7 @@
 // scripts/test-e2e-all.mjs
 // 端對端全功能自動化測試
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:3001';
 
 async function testAll() {
   console.log('🚀 開始 CarVitals 全功能端對端 (E2E) 驗證流程...\n');

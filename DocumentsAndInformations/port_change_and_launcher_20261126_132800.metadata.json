@@ -1,0 +1,8 @@
+{
+  "file": "port_change_and_launcher_20261126_132800.md",
+  "last_modified": "2026-11-26T13:28:00+08:00",
+  "version": "1.0",
+  "author": "Office of William",
+  "description": "CarVitals 服務連接埠由 3000 調整至 3001，並於根目錄建立一鍵啟動腳本 (start-local-server.bat/ps1)",
+  "project_path": "D:\\iKnows99.Car\\DocumentsAndInformations\\port_change_and_launcher_20261126_132800.md"
+}

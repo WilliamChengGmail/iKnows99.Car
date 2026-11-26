@@ -1,7 +1,7 @@
 // scripts/test-preferences.mjs
 // 測試使用者偏好設定 (Preferences) 之讀取、更新、深層合併與跨使用者隔離
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:3001';
 
 async function testPreferences() {
   console.log('🚀 開始使用者環境偏好 (User Preferences) 自動化驗證...\n');
