@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
-import { Car, Wrench, Fuel, AlertTriangle, CheckCircle, PlusCircle, ShieldAlert } from 'lucide-react';
+import { Car, Wrench, Fuel, AlertTriangle, CheckCircle, PlusCircle, Shield, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,6 @@ export default async function DashboardPage({
   const t = await getTranslations('dashboard');
   const user = await getCurrentUser();
 
-  // 若未登入，重定向至登入頁面
   if (!user) {
     redirect(`/${locale}/login`);
   }
@@ -32,7 +31,7 @@ export default async function DashboardPage({
 
   try {
     if (isAdmin) {
-      // 管理者視角：可檢視系統全域數據
+      // 系統管理者視角：全域維運監控
       const vRes = await db.execute('SELECT COUNT(*) as count FROM vehicles');
       vehicleCount = Number(vRes.rows[0].count);
 
@@ -50,7 +49,7 @@ export default async function DashboardPage({
       `);
       vehicles = vehiclesRes.rows;
     } else {
-      // 一般會員視角：嚴格隔離，僅能存取該用戶名下車輛及費用
+      // 一般車主視角 (例如: william)：個人車籍與健康管理
       const vRes = await db.execute({
         sql: 'SELECT COUNT(*) as count FROM vehicles WHERE user_id = ?',
         args: [user.userId]
@@ -93,29 +92,48 @@ export default async function DashboardPage({
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-      {/* 頁面標題與使用者歡迎 */}
+      {/* 頁面標題與角色身份 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{t('title')}</h1>
-            {isAdmin && (
-              <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
-                系統管理者總覽
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              {isAdmin ? '系統維運與全域監控儀表板' : t('title')}
+            </h1>
+            {isAdmin ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-xs font-bold border border-purple-500/20">
+                系統管理者專屬視角
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-bold border border-blue-500/20">
+                車主個人中心
               </span>
             )}
           </div>
           <p className="text-muted-foreground text-sm mt-1">
-            你好，<span className="font-semibold text-foreground">{user.username}</span>！歡迎使用 CarVitals 個人車輛管理中心。
+            你好，<span className="font-semibold text-foreground">{user.username}</span>！
+            {isAdmin
+              ? ' 系統管理員僅負責全域維運、權限指派與數據審核，不登記個人車輛。'
+              : ' 歡迎管理您的愛車資訊、保養歷程與油耗追蹤。'}
           </p>
         </div>
 
-        <Link
-          href={`/${locale}/vehicles`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-md shadow-primary/20 transition-all cursor-pointer w-fit"
-        >
-          <PlusCircle className="h-4 w-4" />
-          新增管理車輛
-        </Link>
+        {isAdmin ? (
+          <Link
+            href={`/${locale}/admin`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer w-fit"
+          >
+            <Shield className="h-4 w-4" />
+            進入使用者與後台管理
+          </Link>
+        ) : (
+          <Link
+            href={`/${locale}/vehicles`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-md shadow-primary/20 transition-all cursor-pointer w-fit"
+          >
+            <PlusCircle className="h-4 w-4" />
+            新增管理車輛
+          </Link>
+        )}
       </div>
 
       {errorMsg && (
@@ -134,7 +152,7 @@ export default async function DashboardPage({
             </p>
             <p className="text-3xl font-black text-foreground">{vehicleCount}</p>
             <p className="text-xs text-muted-foreground">
-              {isAdmin ? '全系統已建檔管理的車輛' : '您目前登記管理的愛車數量'}
+              {isAdmin ? '全系統已建檔管理的活躍車輛' : '您目前登記管理的愛車數量'}
             </p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
@@ -144,9 +162,13 @@ export default async function DashboardPage({
 
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">維修保養工單</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {isAdmin ? '全系統維修工單' : '保養維修工單'}
+            </p>
             <p className="text-3xl font-black text-foreground">{maintenanceCount}</p>
-            <p className="text-xs text-muted-foreground">累計歷史保養工單筆數</p>
+            <p className="text-xs text-muted-foreground">
+              {isAdmin ? '全系統車主累計保養紀錄' : '您的車輛歷史保養工單總數'}
+            </p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
             <Wrench className="h-6 w-6" />
@@ -155,9 +177,13 @@ export default async function DashboardPage({
 
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">加油紀錄筆數</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {isAdmin ? '全系統加油筆數' : '加油歷程筆數'}
+            </p>
             <p className="text-3xl font-black text-foreground">{refuelingCount}</p>
-            <p className="text-xs text-muted-foreground">油耗與花費追蹤歷程</p>
+            <p className="text-xs text-muted-foreground">
+              {isAdmin ? '全系統車主累計加油追蹤' : '您的愛車完整油耗追蹤歷程'}
+            </p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
             <Fuel className="h-6 w-6" />
@@ -170,14 +196,14 @@ export default async function DashboardPage({
         <div className="p-5 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">
-              {isAdmin ? '全系統車輛即時監控列表' : '我的車輛健康狀態'}
+              {isAdmin ? '全系統跨車主車輛清單' : '我的車輛健康即時狀態'}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {isAdmin ? '顯示所有車主之車輛' : '僅顯示您名下的車籍資料與行駛里程'}
+              {isAdmin ? '管理者唯讀監控檢視模式' : '僅顯示您所屬的車籍與最新里程'}
             </p>
           </div>
           <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 font-medium flex items-center gap-1.5">
-            <CheckCircle className="h-3.5 w-3.5" /> 雲端即時同步
+            <CheckCircle className="h-3.5 w-3.5" /> Turso 雲端即時同步
           </span>
         </div>
 
@@ -185,14 +211,9 @@ export default async function DashboardPage({
           <div className="p-12 text-center space-y-3">
             <Car className="h-12 w-12 mx-auto text-muted-foreground/40" />
             <p className="text-base font-semibold text-foreground">目前尚無車輛資料</p>
-            <p className="text-sm text-muted-foreground">點擊上方按鈕建立您的第一台愛車，開始記錄保養與油耗！</p>
-            <Link
-              href={`/${locale}/vehicles`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-md cursor-pointer mt-2"
-            >
-              <PlusCircle className="h-4 w-4" />
-              立即新增車輛
-            </Link>
+            <p className="text-sm text-muted-foreground">
+              {isAdmin ? '全系統尚無任何車主登記車輛' : '立即登記您的第一台愛車，開始記錄保養與油耗！'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -207,8 +228,8 @@ export default async function DashboardPage({
                       <span className="text-base font-bold text-foreground">{v.nickname || v.plate_number}</span>
                       <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono">{v.plate_number}</span>
                       {isAdmin && v.owner_name && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                          車主: {v.owner_name}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-bold border border-purple-500/20">
+                          所屬車主: {v.owner_name}
                         </span>
                       )}
                     </div>
@@ -218,16 +239,16 @@ export default async function DashboardPage({
 
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-xs text-muted-foreground">目前行駛里程</p>
+                    <p className="text-xs text-muted-foreground">目前累積里程</p>
                     <p className="text-base font-black font-mono text-foreground">
                       {Number(v.current_mileage || 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">{v.mileage_unit || 'km'}</span>
                     </p>
                   </div>
                   <Link
-                    href={`/${locale}/vehicles/${v.vehicle_id}`}
-                    className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs font-bold text-foreground transition-all"
+                    href={`/${locale}/vehicles`}
+                    className="px-3.5 py-1.5 rounded-lg border border-border hover:bg-muted text-xs font-bold text-foreground transition-all flex items-center gap-1"
                   >
-                    車籍細節
+                    查看車籍 <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
               </div>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Car, Plus, X, Gauge, Fuel, AlertCircle } from 'lucide-react';
+import { Car, Plus, X, Gauge, Fuel, AlertCircle, ShieldAlert, UserCheck } from 'lucide-react';
 
 export default function VehiclesClient({ locale }: { locale: string }) {
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -25,6 +26,7 @@ export default function VehiclesClient({ locale }: { locale: string }) {
       if (res.ok) {
         const data = await res.json();
         setVehicles(data.vehicles || []);
+        setIsAdmin(!!data.isAdmin);
       }
     } catch (e) {
       console.error(e);
@@ -77,32 +79,50 @@ export default function VehiclesClient({ locale }: { locale: string }) {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">車籍資料管理</h1>
-          <p className="text-sm text-muted-foreground mt-1">管理您所屬的所有車輛檔案與行駛里程</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">車籍資料管理</h1>
+            {isAdmin && (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-xs font-bold border border-purple-500/20">
+                管理者唯讀監控
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isAdmin
+              ? '系統管理員模式：檢視全系統各車主名下之車輛檔案，管理員不可在此登記私人車輛'
+              : '管理您所屬的所有車輛檔案與行駛里程'}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-md shadow-primary/20 transition-all cursor-pointer w-fit"
-        >
-          <Plus className="h-4 w-4" />
-          登記新車輛
-        </button>
+
+        {!isAdmin && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-md shadow-primary/20 transition-all cursor-pointer w-fit"
+          >
+            <Plus className="h-4 w-4" />
+            登記新車輛
+          </button>
+        )}
       </div>
+
+      {isAdmin && (
+        <div className="p-4 rounded-2xl border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300 flex items-center gap-3 text-sm font-medium">
+          <ShieldAlert className="h-5 w-5 shrink-0" />
+          <span>
+            管理者提示：系統管理員（admin）專門負責系統權限維運與數據監管，不持有私人車輛。如需登記車輛與保養維修，請登入車主帳號（例如: william）。
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <div className="p-12 text-center text-muted-foreground">載入車輛資料中...</div>
       ) : vehicles.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-12 text-center space-y-3">
           <Car className="h-12 w-12 mx-auto text-muted-foreground/40" />
-          <h3 className="text-lg font-bold text-foreground">您尚未登記任何車輛</h3>
-          <p className="text-sm text-muted-foreground">立即新增第一台車輛，開始記錄保養工單與油耗！</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-md cursor-pointer mt-2"
-          >
-            <Plus className="h-4 w-4" />
-            立即登記
-          </button>
+          <h3 className="text-lg font-bold text-foreground">目前尚無車輛資料</h3>
+          <p className="text-sm text-muted-foreground">
+            {isAdmin ? '系統內尚無登記車輛' : '立即新增第一台車輛，開始記錄保養工單與油耗！'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -126,6 +146,13 @@ export default function VehiclesClient({ locale }: { locale: string }) {
                     {v.plate_number}
                   </span>
                 </div>
+
+                {isAdmin && v.owner_username && (
+                  <div className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-300 text-xs font-semibold flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    車主帳號: <span className="font-bold">{v.owner_username}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/60">
                   <div className="space-y-0.5">
@@ -160,7 +187,7 @@ export default function VehiclesClient({ locale }: { locale: string }) {
         </div>
       )}
 
-      {showModal && (
+      {showModal && !isAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-7 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
@@ -294,4 +321,3 @@ export default function VehiclesClient({ locale }: { locale: string }) {
     </div>
   );
 }
-
