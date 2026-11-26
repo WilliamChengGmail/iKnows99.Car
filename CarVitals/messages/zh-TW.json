@@ -20,7 +20,21 @@
     "maintenance": "維修保養",
     "refueling": "加油紀錄",
     "expenses": "其他費用",
+    "settings": "個人偏好設定",
     "admin": "後台管理"
+  },
+  "settings": {
+    "title": "個人偏好與環境設定",
+    "subtitle": "依個人使用習慣自由調整外觀色彩、多語系、度量衡單位及後續模組參數",
+    "appearance": "外觀與視覺主題",
+    "theme": "主題模式",
+    "accentColor": "系統強調色系",
+    "language": "語言與地區",
+    "units": "度量衡與單位",
+    "alerts": "保養提醒與預警閥值",
+    "landing": "預設首頁導向",
+    "futureModules": "模組擴充設定",
+    "saveSuccess": "偏好設定已成功儲存並生效"
   },
   "dashboard": {
     "title": "車輛健康儀表板",

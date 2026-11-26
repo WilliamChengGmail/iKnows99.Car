@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Activity, Car, Wrench, Fuel, Receipt, Shield, LogOut, LogIn, UserCheck, KeyRound } from 'lucide-react';
+import { Activity, Car, Wrench, Fuel, Receipt, Shield, LogOut, LogIn, UserCheck, KeyRound, Settings } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import ChangePasswordModal from '../auth/ChangePasswordModal';
@@ -121,6 +121,15 @@ export default function Navbar({ currentLocale }: { currentLocale: string }) {
                       {user.role === 'admin' ? '系統管理員' : '車主會員'}
                     </span>
                   </div>
+
+                  {/* 個人偏好與環境設定按鈕 */}
+                  <Link
+                    href={`/${currentLocale}/settings`}
+                    title="個人偏好與環境設定"
+                    className="p-2 rounded-lg border border-border bg-card hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-muted-foreground transition-all flex items-center justify-center cursor-pointer"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Link>
 
                   {/* 自主修改密碼按鈕 */}
                   <button

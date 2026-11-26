@@ -20,7 +20,21 @@
     "maintenance": "Maintenance",
     "refueling": "Refueling",
     "expenses": "Expenses",
+    "settings": "Settings",
     "admin": "Admin"
+  },
+  "settings": {
+    "title": "Preferences & Settings",
+    "subtitle": "Customize your appearance, language, measurement units, and modular configurations",
+    "appearance": "Appearance & Theme",
+    "theme": "Theme Mode",
+    "accentColor": "Accent Color",
+    "language": "Language & Region",
+    "units": "Units & Measurement",
+    "alerts": "Alert & Notification Thresholds",
+    "landing": "Default Landing Page",
+    "futureModules": "Modular Feature Settings",
+    "saveSuccess": "Preferences updated successfully"
   },
   "dashboard": {
     "title": "Vehicle Health Dashboard",
