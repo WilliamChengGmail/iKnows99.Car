@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const userRes = await db.execute({
-      sql: 'SELECT id, username, password_hash, role, theme_pref, locale_pref, is_active FROM users WHERE username = ? LIMIT 1',
+      sql: 'SELECT id, username, password_hash, role, theme_pref, locale_pref, is_active, must_change_password FROM users WHERE username = ? LIMIT 1',
       args: [username.trim()]
     });
 
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       role: user.role as any,
       themePref: String(user.theme_pref || 'dark'),
       localePref: String(user.locale_pref || 'zh-TW'),
+      mustChangePassword: Number(user.must_change_password) === 1,
     };
 
     const token = await signToken(sessionData);
@@ -55,18 +56,18 @@ export async function POST(request: Request) {
       success: true,
       token,
       user: sessionData,
+      mustChangePassword: sessionData.mustChangePassword,
     });
 
     const isHttps = request.headers.get('x-forwarded-proto') === 'https' || request.url.startsWith('https://');
 
-    // 寫入 HttpOnly Cookie (僅在 HTTPS 下開啟 secure，相容本地 HTTP 開發)
     response.cookies.set({
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,
       secure: isHttps,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 天
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
 

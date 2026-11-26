@@ -14,6 +14,7 @@ export interface UserSession {
   role: 'admin' | 'owner' | 'viewer';
   themePref?: string;
   localePref?: string;
+  mustChangePassword?: boolean;
 }
 
 /** 簽署 JWT Token */
@@ -42,7 +43,6 @@ export async function getCurrentUser(): Promise<UserSession | null> {
   const cookieStore = cookies();
   let token = cookieStore.get(COOKIE_NAME)?.value;
 
-  // 若 Cookie 無 Token，支援從 Authorization: Bearer <token> 讀取
   if (!token) {
     const headerList = headers();
     const authHeader = headerList.get('authorization');

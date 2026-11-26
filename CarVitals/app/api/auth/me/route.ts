@@ -12,7 +12,7 @@ export async function GET() {
 
   const db = getDb();
   const res = await db.execute({
-    sql: 'SELECT id, username, email, role, theme_pref, locale_pref, created_at FROM users WHERE id = ? LIMIT 1',
+    sql: 'SELECT id, username, email, role, theme_pref, locale_pref, must_change_password, created_at FROM users WHERE id = ? LIMIT 1',
     args: [user.userId]
   });
 
@@ -20,6 +20,12 @@ export async function GET() {
     return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
   }
 
-  return NextResponse.json({ user: res.rows[0] });
-}
+  const userData = res.rows[0];
 
+  return NextResponse.json({
+    user: {
+      ...userData,
+      mustChangePassword: Number(userData.must_change_password) === 1,
+    }
+  });
+}

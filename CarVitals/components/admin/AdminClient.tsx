@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Users, Car, UserPlus, Check, X, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Shield, Users, Car, UserPlus, Check, X, ShieldAlert, RefreshCw, KeyRound, Copy } from 'lucide-react';
 
 export default function AdminClient({ locale }: { locale: string }) {
   const router = useRouter();
@@ -11,11 +11,19 @@ export default function AdminClient({ locale }: { locale: string }) {
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
+  // 新增使用者表單
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('owner');
   const [submitting, setSubmitting] = useState(false);
+
+  // 重置密碼結果彈窗
+  const [resetResult, setResetResult] = useState<{
+    username: string;
+    temporaryPassword: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -51,6 +59,37 @@ export default function AdminClient({ locale }: { locale: string }) {
       fetchUsers();
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const handleResetPassword = async (userId: number, username: string) => {
+    if (!confirm(`確定要重置使用者 [${username}] 的密碼嗎？\n系統將自動產生一組 6~12 碼的隨機臨時密碼，且該使用者下次登入時必須強制更新密碼。`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '重置密碼失敗');
+
+      setResetResult({
+        username: data.username,
+        temporaryPassword: data.temporaryPassword,
+      });
+      setCopied(false);
+      fetchUsers();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (resetResult) {
+      navigator.clipboard.writeText(resetResult.temporaryPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -174,8 +213,8 @@ export default function AdminClient({ locale }: { locale: string }) {
                   <th className="px-5 py-3.5 font-bold">權限角色</th>
                   <th className="px-5 py-3.5 font-bold">所屬車輛數</th>
                   <th className="px-5 py-3.5 font-bold">帳號狀態</th>
+                  <th className="px-5 py-3.5 font-bold">密碼狀態</th>
                   <th className="px-5 py-3.5 font-bold">最後登入時間</th>
-                  <th className="px-5 py-3.5 font-bold">建立時間</th>
                   <th className="px-5 py-3.5 font-bold text-right">操作</th>
                 </tr>
               </thead>
@@ -211,25 +250,44 @@ export default function AdminClient({ locale }: { locale: string }) {
                         </span>
                       )}
                     </td>
+                    <td className="px-5 py-4">
+                      {Number(u.must_change_password) === 1 ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          待更新密碼
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">正常</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-xs text-muted-foreground">
                       {u.last_login_at || '尚未登入'}
                     </td>
-                    <td className="px-5 py-4 text-xs text-muted-foreground">
-                      {u.created_at ? u.created_at.split(' ')[0] : '-'}
-                    </td>
                     <td className="px-5 py-4 text-right">
-                      {u.username !== 'admin' && (
+                      <div className="flex items-center justify-end gap-2">
+                        {/* 重置密碼按鈕 */}
                         <button
-                          onClick={() => handleToggleStatus(u.id, u.is_active)}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                            u.is_active === 1
-                              ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
-                              : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
-                          }`}
+                          onClick={() => handleResetPassword(u.id, u.username)}
+                          title="重置密碼並產生隨機臨時密碼"
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-muted text-foreground transition-all cursor-pointer font-medium"
                         >
-                          {u.is_active === 1 ? '停用帳號' : '重新啟用'}
+                          <KeyRound className="h-3.5 w-3.5 text-amber-500" />
+                          重置密碼
                         </button>
-                      )}
+
+                        {/* 啟用/停用按鈕 (admin 不能停用自己) */}
+                        {u.username !== 'admin' && (
+                          <button
+                            onClick={() => handleToggleStatus(u.id, u.is_active)}
+                            className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                              u.is_active === 1
+                                ? 'border-destructive/30 text-destructive hover:bg-destructive/10'
+                                : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                            }`}
+                          >
+                            {u.is_active === 1 ? '停用' : '啟用'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -239,6 +297,59 @@ export default function AdminClient({ locale }: { locale: string }) {
         )}
       </div>
 
+      {/* 臨時密碼生成結果彈窗 */}
+      {resetResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-primary/30 bg-card p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">密碼重置成功</h3>
+                  <p className="text-xs text-muted-foreground">已為使用者 [{resetResult.username}] 產生隨機密碼</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResetResult(null)}
+                className="text-muted-foreground hover:bg-muted p-1.5 rounded-lg cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                生成的隨機臨時密碼 (請立即提供給使用者)
+              </label>
+              <div className="flex items-center gap-2 p-3.5 rounded-2xl border border-border bg-muted/60 font-mono text-lg font-black text-foreground tracking-widest justify-between">
+                <span>{resetResult.temporaryPassword}</span>
+                <button
+                  onClick={copyToClipboard}
+                  className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? '已複製' : '複製'}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-300 leading-relaxed">
+              ⚠️ <strong>安全提示</strong>：該使用者使用此臨時密碼首次登入時，系統將**強制鎖定並要求設定全新的個人密碼**，方可解鎖進入系統。
+            </div>
+
+            <button
+              onClick={() => setResetResult(null)}
+              className="w-full py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-xs transition-colors cursor-pointer"
+            >
+              完成並關閉
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 新增使用者 Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
@@ -301,7 +412,7 @@ export default function AdminClient({ locale }: { locale: string }) {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground"
+                  className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground cursor-pointer"
                 >
                   取消
                 </button>
@@ -320,4 +431,3 @@ export default function AdminClient({ locale }: { locale: string }) {
     </div>
   );
 }
-
